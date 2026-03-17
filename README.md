@@ -141,22 +141,12 @@ VITE_API_URL=http://localhost:5000/api
 
 ## 🚢 Deployment
 
-### MongoDB Atlas
-1. Create a free cluster at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
-2. Create a database user and whitelist your IP (or `0.0.0.0/0` for any)
-3. Copy the connection string into `MONGO_URI`
+Please refer to the detailed [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for step-by-step instructions on deploying the backend to Render and frontend to Vercel.
 
-### Backend → Render / Railway
-1. Push your repo to GitHub
-2. Create a new **Web Service** on [Render](https://render.com) or [Railway](https://railway.app)
-3. Set root directory to `server`, build command `npm install`, start command `npm start`
-4. Add all env vars from `server/.env`
+### Quick Links
+- [Render Dashboard](https://dashboard.render.com/)
+- [Vercel Dashboard](https://vercel.com/)
 
-### Frontend → Vercel
-1. Import your GitHub repo on [Vercel](https://vercel.com)
-2. Set root directory to `client`
-3. Set `VITE_API_URL` to your deployed backend URL (e.g. `https://your-api.onrender.com/api`)
-4. Deploy
 
 ---
 
