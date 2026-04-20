@@ -1,4 +1,4 @@
-const Ticket = require('../models/Ticket');
+const { prisma } = require('../config/db');
 
 // ─── USER-FACING CONTROLLERS ───────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ const createTicket = async (req, res, next) => {
         const { title, description, category, location } = req.body;
 
         // Build media array from uploaded files (Multer + Cloudinary)
-        const media =
+        const mediaData =
             req.files && req.files.length > 0
                 ? req.files.map((file) => ({
                     url: file.path, // Cloudinary URL
@@ -20,13 +20,20 @@ const createTicket = async (req, res, next) => {
                 }))
                 : [];
 
-        const ticket = await Ticket.create({
-            title,
-            description,
-            category,
-            location,
-            media,
-            createdBy: req.user._id,
+        const ticket = await prisma.ticket.create({
+            data: {
+                title,
+                description,
+                category,
+                location,
+                createdById: req.user.id,
+                media: {
+                    create: mediaData
+                }
+            },
+            include: {
+                media: true
+            }
         });
 
         res.status(201).json({ success: true, data: ticket });
@@ -42,9 +49,16 @@ const createTicket = async (req, res, next) => {
  */
 const getMyTickets = async (req, res, next) => {
     try {
-        const tickets = await Ticket.find({ createdBy: req.user._id })
-            .sort({ createdAt: -1 })
-            .populate('createdBy', 'name email');
+        const tickets = await prisma.ticket.findMany({
+            where: { createdById: req.user.id },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                createdBy: {
+                    select: { name: true, email: true }
+                },
+                media: true
+            }
+        });
 
         res.status(200).json({ success: true, count: tickets.length, data: tickets });
     } catch (error) {
@@ -59,9 +73,22 @@ const getMyTickets = async (req, res, next) => {
  */
 const getTicketById = async (req, res, next) => {
     try {
-        const ticket = await Ticket.findById(req.params.id)
-            .populate('createdBy', 'name email')
-            .populate('progressNotes.updatedBy', 'name');
+        const ticket = await prisma.ticket.findUnique({
+            where: { id: parseInt(req.params.id) },
+            include: {
+                createdBy: {
+                    select: { name: true, email: true }
+                },
+                media: true,
+                progressNotes: {
+                    include: {
+                        updatedBy: {
+                            select: { name: true }
+                        }
+                    }
+                }
+            }
+        });
 
         if (!ticket) {
             return res
@@ -72,7 +99,7 @@ const getTicketById = async (req, res, next) => {
         // Users can only view their own tickets; admins can view any
         if (
             req.user.role !== 'admin' &&
-            ticket.createdBy._id.toString() !== req.user._id.toString()
+            ticket.createdById !== req.user.id
         ) {
             return res
                 .status(403)
@@ -92,7 +119,10 @@ const getTicketById = async (req, res, next) => {
  */
 const updateTicket = async (req, res, next) => {
     try {
-        let ticket = await Ticket.findById(req.params.id);
+        const ticketId = parseInt(req.params.id);
+        let ticket = await prisma.ticket.findUnique({
+            where: { id: ticketId }
+        });
 
         if (!ticket) {
             return res
@@ -101,7 +131,7 @@ const updateTicket = async (req, res, next) => {
         }
 
         // Only the creator can edit
-        if (ticket.createdBy.toString() !== req.user._id.toString()) {
+        if (ticket.createdById !== req.user.id) {
             return res
                 .status(403)
                 .json({ success: false, message: 'Not authorized to edit this ticket' });
@@ -116,23 +146,32 @@ const updateTicket = async (req, res, next) => {
 
         const { title, description, category, location } = req.body;
 
-        // Handle new file uploads (append to existing media)
+        const updateData = {};
+        if (title) updateData.title = title;
+        if (description) updateData.description = description;
+        if (category) updateData.category = category;
+        if (location) updateData.location = location;
+
+        // Handle new file uploads
         if (req.files && req.files.length > 0) {
             const newMedia = req.files.map((file) => ({
                 url: file.path,
                 resourceType: file.mimetype.startsWith('video') ? 'video' : 'image',
             }));
-            ticket.media.push(...newMedia);
+            updateData.media = {
+                create: newMedia
+            };
         }
 
-        if (title) ticket.title = title;
-        if (description) ticket.description = description;
-        if (category) ticket.category = category;
-        if (location) ticket.location = location;
+        const updatedTicket = await prisma.ticket.update({
+            where: { id: ticketId },
+            data: updateData,
+            include: {
+                media: true
+            }
+        });
 
-        await ticket.save();
-
-        res.status(200).json({ success: true, data: ticket });
+        res.status(200).json({ success: true, data: updatedTicket });
     } catch (error) {
         next(error);
     }
@@ -145,7 +184,10 @@ const updateTicket = async (req, res, next) => {
  */
 const deleteTicket = async (req, res, next) => {
     try {
-        const ticket = await Ticket.findById(req.params.id);
+        const ticketId = parseInt(req.params.id);
+        const ticket = await prisma.ticket.findUnique({
+            where: { id: ticketId }
+        });
 
         if (!ticket) {
             return res
@@ -153,14 +195,18 @@ const deleteTicket = async (req, res, next) => {
                 .json({ success: false, message: 'Ticket not found' });
         }
 
-        if (ticket.createdBy.toString() !== req.user._id.toString()) {
+        if (ticket.createdById !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to delete this ticket',
             });
         }
 
-        await ticket.deleteOne();
+        // Delete related media and progress notes first (or rely on Cascade if set up, but let's be explicit)
+        await prisma.media.deleteMany({ where: { ticketId } });
+        await prisma.progressNote.deleteMany({ where: { ticketId } });
+        await prisma.ticket.delete({ where: { id: ticketId } });
+
         res.status(200).json({ success: true, message: 'Ticket deleted' });
     } catch (error) {
         next(error);
@@ -178,24 +224,38 @@ const getAllTickets = async (req, res, next) => {
     try {
         const { category, status, page = 1, limit = 20 } = req.query;
 
-        const filter = {};
-        if (category) filter.category = category;
-        if (status) filter.status = status;
+        const where = {};
+        if (category) where.category = category;
+        if (status) {
+            // Map Mongoose status with space to Prisma enum if needed
+            where.status = status === 'In Progress' ? 'InProgress' : status;
+        }
 
-        const tickets = await Ticket.find(filter)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(Number(limit))
-            .populate('createdBy', 'name email');
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
 
-        const total = await Ticket.countDocuments(filter);
+        const [tickets, total] = await Promise.all([
+            prisma.ticket.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take,
+                include: {
+                    createdBy: {
+                        select: { name: true, email: true }
+                    },
+                    media: true
+                }
+            }),
+            prisma.ticket.count({ where })
+        ]);
 
         res.status(200).json({
             success: true,
             count: tickets.length,
             total,
-            page: Number(page),
-            pages: Math.ceil(total / limit),
+            page: parseInt(page),
+            pages: Math.ceil(total / take),
             data: tickets,
         });
     } catch (error) {
@@ -210,25 +270,27 @@ const getAllTickets = async (req, res, next) => {
  */
 const updateTicketStatus = async (req, res, next) => {
     try {
-        const { status } = req.body;
+        let { status } = req.body;
 
-        if (!['Submitted', 'In Progress', 'Resolved', 'Rejected'].includes(status)) {
+        const validStatuses = ['Submitted', 'In Progress', 'Resolved', 'Rejected'];
+        if (!validStatuses.includes(status)) {
             return res
                 .status(400)
                 .json({ success: false, message: 'Invalid status value' });
         }
 
-        const ticket = await Ticket.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true, runValidators: true }
-        ).populate('createdBy', 'name email');
+        // Map status
+        const prismaStatus = status === 'In Progress' ? 'InProgress' : status;
 
-        if (!ticket) {
-            return res
-                .status(404)
-                .json({ success: false, message: 'Ticket not found' });
-        }
+        const ticket = await prisma.ticket.update({
+            where: { id: parseInt(req.params.id) },
+            data: { status: prismaStatus },
+            include: {
+                createdBy: {
+                    select: { name: true, email: true }
+                }
+            }
+        });
 
         res.status(200).json({ success: true, data: ticket });
     } catch (error) {
@@ -244,6 +306,7 @@ const updateTicketStatus = async (req, res, next) => {
 const addProgressNote = async (req, res, next) => {
     try {
         const { note } = req.body;
+        const ticketId = parseInt(req.params.id);
 
         if (!note) {
             return res
@@ -251,26 +314,39 @@ const addProgressNote = async (req, res, next) => {
                 .json({ success: false, message: 'Note text is required' });
         }
 
-        const ticket = await Ticket.findById(req.params.id);
+        const ticketExists = await prisma.ticket.findUnique({
+            where: { id: ticketId }
+        });
 
-        if (!ticket) {
+        if (!ticketExists) {
             return res
                 .status(404)
                 .json({ success: false, message: 'Ticket not found' });
         }
 
-        ticket.progressNotes.push({
-            note,
-            updatedBy: req.user._id,
-            date: Date.now(),
+        const updatedTicket = await prisma.ticket.update({
+            where: { id: ticketId },
+            data: {
+                progressNotes: {
+                    create: {
+                        note,
+                        updatedById: req.user.id,
+                        date: new Date()
+                    }
+                }
+            },
+            include: {
+                progressNotes: {
+                    include: {
+                        updatedBy: {
+                            select: { name: true }
+                        }
+                    }
+                }
+            }
         });
 
-        await ticket.save();
-
-        // Re-populate for response
-        await ticket.populate('progressNotes.updatedBy', 'name');
-
-        res.status(200).json({ success: true, data: ticket });
+        res.status(200).json({ success: true, data: updatedTicket });
     } catch (error) {
         next(error);
     }
@@ -283,7 +359,10 @@ const addProgressNote = async (req, res, next) => {
  */
 const adminDeleteTicket = async (req, res, next) => {
     try {
-        const ticket = await Ticket.findById(req.params.id);
+        const ticketId = parseInt(req.params.id);
+        const ticket = await prisma.ticket.findUnique({
+            where: { id: ticketId }
+        });
 
         if (!ticket) {
             return res
@@ -291,7 +370,10 @@ const adminDeleteTicket = async (req, res, next) => {
                 .json({ success: false, message: 'Ticket not found' });
         }
 
-        await ticket.deleteOne();
+        await prisma.media.deleteMany({ where: { ticketId } });
+        await prisma.progressNote.deleteMany({ where: { ticketId } });
+        await prisma.ticket.delete({ where: { id: ticketId } });
+
         res.status(200).json({ success: true, message: 'Ticket deleted by admin' });
     } catch (error) {
         next(error);
@@ -306,31 +388,29 @@ const adminDeleteTicket = async (req, res, next) => {
 const getAnalytics = async (req, res, next) => {
     try {
         const [statusStats, categoryStats, totalCount] = await Promise.all([
-            // Count by status
-            Ticket.aggregate([
-                { $group: { _id: '$status', count: { $sum: 1 } } },
-            ]),
-            // Count by category
-            Ticket.aggregate([
-                { $group: { _id: '$category', count: { $sum: 1 } } },
-            ]),
-            // Total tickets
-            Ticket.countDocuments(),
+            prisma.ticket.groupBy({
+                by: ['status'],
+                _count: { _all: true }
+            }),
+            prisma.ticket.groupBy({
+                by: ['category'],
+                _count: { _all: true }
+            }),
+            prisma.ticket.count(),
         ]);
 
-        // Transform aggregation results into keyed objects
         const byStatus = {};
-        statusStats.forEach((s) => (byStatus[s._id] = s.count));
+        statusStats.forEach((s) => (byStatus[s.status] = s._count._all));
 
         const byCategory = {};
-        categoryStats.forEach((c) => (byCategory[c._id] = c.count));
+        categoryStats.forEach((c) => (byCategory[c.category] = c._count._all));
 
         res.status(200).json({
             success: true,
             data: {
                 total: totalCount,
                 submitted: byStatus['Submitted'] || 0,
-                inProgress: byStatus['In Progress'] || 0,
+                inProgress: byStatus['InProgress'] || 0,
                 resolved: byStatus['Resolved'] || 0,
                 rejected: byStatus['Rejected'] || 0,
                 byCategory,
