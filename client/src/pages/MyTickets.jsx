@@ -38,23 +38,28 @@ const MyTickets = () => {
     }
 
     return (
-        <div className="space-y-6 animate-fadeInUp">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-                <h1 className="text-2xl font-bold text-surface-800">My Tickets</h1>
+        <div className="max-w-4xl mx-auto py-4 space-y-8 animate-fadeInUp">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-civic-border pb-6">
+                <div>
+                    <h1 className="text-[32px] font-bold text-civic-textPrimary tracking-tight">My Reports</h1>
+                    <p className="text-civic-textSecondary mt-1">Track the progress of issues you've reported.</p>
+                </div>
 
-                <div className="flex items-center gap-2">
-                    <HiOutlineFilter className="w-4 h-4 text-surface-400" />
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="input-field w-auto text-sm"
-                    >
-                        <option value="">All Statuses</option>
-                        <option value="Submitted">Submitted</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Resolved">Resolved</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <HiOutlineFilter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-civic-textMuted" />
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="input-field pl-9 py-2 text-sm w-[180px] h-10"
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="Submitted">Submitted</option>
+                            <option value="InProgress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

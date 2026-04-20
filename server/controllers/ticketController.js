@@ -9,7 +9,7 @@ const { prisma } = require('../config/db');
  */
 const createTicket = async (req, res, next) => {
     try {
-        const { title, description, category, location } = req.body;
+        const { title, description, category, location, isVerified } = req.body;
 
         // Build media array from uploaded files (Multer + Cloudinary)
         const mediaData =
@@ -26,6 +26,7 @@ const createTicket = async (req, res, next) => {
                 description,
                 category,
                 location,
+                isVerified: isVerified === true || isVerified === 'true',
                 createdById: req.user.id,
                 media: {
                     create: mediaData

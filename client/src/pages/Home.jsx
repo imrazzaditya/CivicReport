@@ -78,7 +78,7 @@ const Home = () => {
 
             {/* Live Issues Ticker */}
             <div className="w-full bg-civic-textPrimary overflow-hidden py-3">
-                <div className="whitespace-nowrap flex items-center gap-8 animate-[marquee_20s_linear_infinite]">
+                <div className="whitespace-nowrap flex items-center gap-8 animate-marquee">
                     {/* Repeated content for smooth scrolling effect */}
                     <span className="text-white text-sm font-medium">🔴 Pothole — Bengaluru MG Road</span>
                     <span className="text-white text-sm font-medium">🟡 Garbage — Delhi Rohini</span>
@@ -196,13 +196,6 @@ const Home = () => {
                     Made with ❤️ for India | © 2025 CivicReport
                 </div>
             </footer>
-            
-            <style jsx>{`
-                @keyframes marquee {
-                    0% { transform: translateX(0%); }
-                    100% { transform: translateX(-50%); }
-                }
-            `}</style>
         </div>
     );
 };

@@ -8,22 +8,18 @@ import {
     HiOutlineHome,
 } from 'react-icons/hi';
 
-/**
- * Sidebar — dashboard side navigation.
- * Shows different links based on user role.
- */
 const Sidebar = () => {
     const { isAdmin } = useAuth();
 
     const linkClass = ({ isActive }) =>
-        `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
-            ? 'bg-primary-50 text-primary-700 shadow-sm'
-            : 'text-surface-500 hover:bg-surface-100 hover:text-surface-700'
+        `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
+            ? 'bg-blue-50 text-civic-primary shadow-sm ring-1 ring-blue-100'
+            : 'text-civic-textSecondary hover:bg-gray-50 hover:text-civic-textPrimary'
         }`;
 
     return (
-        <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-surface-200 p-4 min-h-[calc(100vh-4rem)]">
-            <div className="space-y-1">
+        <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-civic-border p-5 min-h-[calc(100vh-72px)]">
+            <div className="space-y-2">
                 <NavLink to="/dashboard" end className={linkClass}>
                     <HiOutlineViewGrid className="w-5 h-5" />
                     Dashboard
@@ -55,11 +51,11 @@ const Sidebar = () => {
                     </>
                 )}
 
-                <hr className="my-3 border-surface-200" />
+                <div className="my-6 border-t border-civic-border opacity-50"></div>
 
                 <NavLink to="/" className={linkClass}>
                     <HiOutlineHome className="w-5 h-5" />
-                    Home
+                    Home Page
                 </NavLink>
             </div>
         </aside>
