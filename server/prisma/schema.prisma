@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum Category {
+  Road
+  Water
+  Electricity
+  Garbage
+  Other
+}
+
+enum Status {
+  Submitted
+  InProgress
+  Resolved
+  Rejected
+}
+
+enum MediaType {
+  image
+  video
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(user)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets       Ticket[]       @relation("CreatedTickets")
+  progressNotes ProgressNote[] @relation("UpdatedNotes")
+}
+
+model Ticket {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  category    Category
+  location    String
+  status      Status   @default(Submitted)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User @relation("CreatedTickets", fields: [createdById], references: [id])
+  createdById Int
+
+  media         Media[]
+  progressNotes ProgressNote[]
+}
+
+model Media {
+  id           Int       @id @default(autoincrement())
+  url          String
+  resourceType MediaType @default(image)
+  ticket       Ticket    @relation(fields: [ticketId], references: [id])
+  ticketId     Int
+}
+
+model ProgressNote {
+  id        Int      @id @default(autoincrement())
+  note      String
+  date      DateTime @default(now())
+  
+  updatedBy   User @relation("UpdatedNotes", fields: [updatedById], references: [id])
+  updatedById Int
+
+  ticket   Ticket @relation(fields: [ticketId], references: [id])
+  ticketId Int
+}
