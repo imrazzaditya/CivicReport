@@ -12,6 +12,9 @@ import EditTicket from './pages/EditTicket';
 import TicketDetail from './pages/TicketDetail';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminTickets from './pages/AdminTickets';
+import TrackIssue from './pages/TrackIssue';
+import About from './pages/About';
+import CertificateView from './pages/CertificateView';
 
 const App = () => {
     const { user } = useAuth();
@@ -20,6 +23,9 @@ const App = () => {
         <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
+            <Route path="/track" element={<TrackIssue />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/certificate/:id" element={<CertificateView />} />
             <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
             <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
 
